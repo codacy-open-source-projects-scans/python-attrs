@@ -335,7 +335,7 @@ class TestFunctional:
         """
         Metaclass data is preserved.
         """
-        assert Meta == type(cls)
+        assert Meta is type(cls)
 
     def test_default_decorator(self):
         """

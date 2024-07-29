@@ -460,6 +460,29 @@ All objects from ``attrs.validators`` are also available from ``attr.validators`
       x = field(validator=attrs.validators.and_(v1, v2, v3))
       x = field(validator=[v1, v2, v3])
 
+.. autofunction:: attrs.validators.or_
+
+   For example:
+
+   .. doctest::
+
+      >>> @define
+      ... class C:
+      ...     val: int | list[int] = field(
+      ...         validator=attrs.validators.or_(
+      ...             attrs.validators.instance_of(int),
+      ...             attrs.validators.deep_iterable(attrs.validators.instance_of(int)),
+      ...         )
+      ...     )
+      >>> C(42)
+      C(val=42)
+      >>> C([1, 2, 3])
+      C(val=[1, 2, 3])
+      >>> C(val='42')
+      Traceback (most recent call last):
+         ...
+      ValueError: None of (<instance_of validator for type <class 'int'>>, <deep_iterable validator for iterables of <instance_of validator for type <class 'int'>>>) satisfied for value '42'
+
 .. autofunction:: attrs.validators.not_
 
    For example:
@@ -606,6 +629,27 @@ Validators can be both globally and locally disabled:
 
 Converters
 ----------
+
+.. autoclass:: attrs.Converter
+
+   For example:
+
+   .. doctest::
+
+      >>> def complicated(value, self_, field):
+      ...     return int(value) * self_.factor + field.metadata["offset"]
+      >>> @define
+      ... class C:
+      ...     factor = 5  # not an *attrs* field
+      ...     x = field(
+      ...         metadata={"offset": 200},
+      ...         converter=attrs.Converter(
+      ...             complicated,
+      ...             takes_self=True, takes_field=True
+      ...     ))
+      >>> C("42")
+      C(x=410)
+
 
 .. module:: attrs.converters
 

@@ -1164,6 +1164,34 @@ class TestMakeClass:
 
         attr.make_class("test", {"id": attr.ib(type=str)}, (MyParent[int],))
 
+    def test_annotations(self):
+        """
+        make_class fills the __annotations__ dict for attributes with a known
+        type.
+        """
+        a = attr.ib(type=bool)
+        b = attr.ib(
+            type=None
+        )  # Won't be added to ann. b/c of unfavorable default
+        c = attr.ib()
+
+        C = attr.make_class("C", {"a": a, "b": b, "c": c})
+        C = attr.resolve_types(C)
+
+        assert {"a": bool} == C.__annotations__
+
+    def test_annotations_resolve(self):
+        """
+        resolve_types() resolves the annotations added by make_class().
+        """
+        a = attr.ib(type="bool")
+
+        C = attr.make_class("C", {"a": a})
+        C = attr.resolve_types(C)
+
+        assert attr.fields(C).a.type is bool
+        assert {"a": "bool"} == C.__annotations__
+
 
 class TestFields:
     """
@@ -1284,7 +1312,7 @@ class TestConverter:
     Tests for attribute conversion.
     """
 
-    def test_convert(self):
+    def test_converter(self):
         """
         Return value of converter is used as the attribute's value.
         """
@@ -1295,6 +1323,46 @@ class TestConverter:
 
         assert c.x == 2
         assert c.y == 2
+
+    def test_converter_wrapped_takes_self(self):
+        """
+        When wrapped and passed `takes_self`, the converter receives the
+        instance that's being initializes -- and the return value is used as
+        the field's value.
+        """
+
+        def converter_with_self(v, self_):
+            return v * self_.y
+
+        @attr.define
+        class C:
+            x: int = attr.field(
+                converter=attr.Converter(converter_with_self, takes_self=True)
+            )
+            y = 42
+
+        assert 84 == C(2).x
+
+    def test_converter_wrapped_takes_field(self):
+        """
+        When wrapped and passed `takes_field`, the converter receives the field
+        definition -- and the return value is used as the field's value.
+        """
+
+        def converter_with_field(v, field):
+            assert isinstance(field, attr.Attribute)
+            return v * field.metadata["x"]
+
+        @attr.define
+        class C:
+            x: int = attr.field(
+                converter=attr.Converter(
+                    converter_with_field, takes_field=True
+                ),
+                metadata={"x": 42},
+            )
+
+        assert 84 == C(2).x
 
     @given(integers(), booleans())
     def test_convert_property(self, val, init):

@@ -31,7 +31,13 @@ class Point:
 pt = Point.from_row(row)
 ```
 
-Now you can instantiate `Point`s without creating fake row objects in your tests and you can have as many smart creation helpers as you want, in case more data sources appear.
+This is sometimes called a *named constructor* or a *factory method*.
+
+Now, you can instantiate `Point`s without creating fake row objects in your tests.
+You can also have as many smart creation helpers as you want.
+This flexibility is useful because additional data sources tend to appear over time.
+
+---
 
 For similar reasons, we strongly discourage from patterns like:
 
@@ -353,6 +359,24 @@ A converter will override an explicit type annotation or `type` argument.
 ...     x = field(converter=str2int)
 >>> C.__init__.__annotations__
 {'return': None, 'x': <class 'str'>}
+```
+
+If you need more control over the conversion process, you can wrap the converter with a {class}`attrs.Converter` and ask for the instance and/or the field that are being initialized:
+
+```{doctest}
+>>> def complicated(value, self_, field):
+...     return int(value) * self_.factor + field.metadata["offset"]
+>>> @define
+... class C:
+...     factor = 5  # not an *attrs* field
+...     x = field(
+...         metadata={"offset": 200},
+...         converter=attrs.Converter(
+...             complicated,
+...             takes_self=True, takes_field=True
+...     ))
+>>> C("42")
+C(x=410)
 ```
 
 
