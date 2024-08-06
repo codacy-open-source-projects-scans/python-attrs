@@ -64,16 +64,16 @@ class OrderCallableCSlots:
 # HashC is hashable by explicit definition while HashCSlots is hashable
 # implicitly.  The "Cached" versions are the same, except with hash code
 # caching enabled
-HashC = simple_class(hash=True)
-HashCSlots = simple_class(hash=None, eq=True, frozen=True, slots=True)
-HashCCached = simple_class(hash=True, cache_hash=True)
+HashC = simple_class(unsafe_hash=True)
+HashCSlots = simple_class(unsafe_hash=None, eq=True, frozen=True, slots=True)
+HashCCached = simple_class(unsafe_hash=True, cache_hash=True)
 HashCSlotsCached = simple_class(
-    hash=None, eq=True, frozen=True, slots=True, cache_hash=True
+    unsafe_hash=None, eq=True, frozen=True, slots=True, cache_hash=True
 )
 # the cached hash code is stored slightly differently in this case
 # so it needs to be tested separately
 HashCFrozenNotSlotsCached = simple_class(
-    frozen=True, slots=False, hash=True, cache_hash=True
+    frozen=True, slots=False, unsafe_hash=True, cache_hash=True
 )
 
 
@@ -443,17 +443,17 @@ class TestAddRepr:
 
 # these are for use in TestAddHash.test_cache_hash_serialization
 # they need to be out here so they can be un-pickled
-@attr.attrs(hash=True, cache_hash=False)
+@attr.attrs(unsafe_hash=True, cache_hash=False)
 class HashCacheSerializationTestUncached:
     foo_value = attr.ib()
 
 
-@attr.attrs(hash=True, cache_hash=True)
+@attr.attrs(unsafe_hash=True, cache_hash=True)
 class HashCacheSerializationTestCached:
     foo_value = attr.ib()
 
 
-@attr.attrs(slots=True, hash=True, cache_hash=True)
+@attr.attrs(slots=True, unsafe_hash=True, cache_hash=True)
 class HashCacheSerializationTestCachedSlots:
     foo_value = attr.ib()
 
@@ -481,7 +481,7 @@ class TestAddHash:
         exc_args = ("Invalid value for hash.  Must be True, False, or None.",)
 
         with pytest.raises(TypeError) as e:
-            make_class("C", {}, hash=1),
+            make_class("C", {}, unsafe_hash=1),
 
         assert exc_args == e.value.args
 
@@ -501,13 +501,18 @@ class TestAddHash:
             "enabled.",
         )
         with pytest.raises(TypeError) as e:
-            make_class("C", {}, hash=False, cache_hash=True)
+            make_class("C", {}, unsafe_hash=False, cache_hash=True)
         assert exc_args == e.value.args
 
         # unhashable case
         with pytest.raises(TypeError) as e:
             make_class(
-                "C", {}, hash=None, eq=True, frozen=False, cache_hash=True
+                "C",
+                {},
+                unsafe_hash=None,
+                eq=True,
+                frozen=False,
+                cache_hash=True,
             )
         assert exc_args == e.value.args
 
@@ -521,7 +526,7 @@ class TestAddHash:
             " init must be True.",
         )
         with pytest.raises(TypeError) as e:
-            make_class("C", {}, init=False, hash=True, cache_hash=True)
+            make_class("C", {}, init=False, unsafe_hash=True, cache_hash=True)
         assert exc_args == e.value.args
 
     @given(booleans(), booleans())
@@ -533,7 +538,7 @@ class TestAddHash:
             "C",
             {"a": attr.ib(hash=False), "b": attr.ib()},
             slots=slots,
-            hash=True,
+            unsafe_hash=True,
             cache_hash=cache_hash,
         )
 
@@ -629,13 +634,13 @@ class TestAddHash:
         Uncached = make_class(
             "Uncached",
             {"hash_counter": attr.ib(factory=HashCounter)},
-            hash=True,
+            unsafe_hash=True,
             cache_hash=False,
         )
         Cached = make_class(
             "Cached",
             {"hash_counter": attr.ib(factory=HashCounter)},
-            hash=True,
+            unsafe_hash=True,
             cache_hash=True,
         )
 
@@ -660,7 +665,7 @@ class TestAddHash:
 
         # Give it an explicit hash if we don't have an implicit one
         if not frozen:
-            kwargs["hash"] = True
+            kwargs["unsafe_hash"] = True
 
         @attr.s(**kwargs)
         class C:
@@ -711,7 +716,7 @@ class TestAddHash:
         __reduce__ generated when cache_hash=True works in that case.
         """
 
-        @attr.s(frozen=frozen, cache_hash=True, hash=True)
+        @attr.s(frozen=frozen, cache_hash=True, unsafe_hash=True)
         class C:
             x = attr.ib()
 
@@ -965,7 +970,7 @@ class TestNothing:
         assert False is bool(NOTHING)
 
 
-@attr.s(hash=True, order=True)
+@attr.s(unsafe_hash=True, order=True)
 class C:
     pass
 
@@ -974,7 +979,7 @@ class C:
 OriginalC = C
 
 
-@attr.s(hash=True, order=True)
+@attr.s(unsafe_hash=True, order=True)
 class C:
     pass
 
@@ -982,9 +987,11 @@ class C:
 CopyC = C
 
 
-@attr.s(hash=True, order=True)
+@attr.s(unsafe_hash=True, order=True)
 class C:
-    """A different class, to generate different methods."""
+    """
+    A different class, to generate different methods.
+    """
 
     a = attr.ib()
 

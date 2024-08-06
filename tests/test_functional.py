@@ -4,7 +4,6 @@
 End-to-end tests.
 """
 
-
 import inspect
 import pickle
 
@@ -380,12 +379,12 @@ class TestFunctional:
 
     def test_hash_by_id(self):
         """
-        With dict classes, hashing by ID is active for hash=False even on
-        Python 3.  This is incorrect behavior but we have to retain it for
-        backward compatibility.
+        With dict classes, hashing by ID is active for hash=False.  This is
+        incorrect behavior but we have to retain it for
+        backwards-compatibility.
         """
 
-        @attr.s(hash=False)
+        @attr.s(unsafe_hash=False)
         class HashByIDBackwardCompat:
             x = attr.ib()
 
@@ -393,13 +392,13 @@ class TestFunctional:
             HashByIDBackwardCompat(1)
         )
 
-        @attr.s(hash=False, eq=False)
+        @attr.s(unsafe_hash=False, eq=False)
         class HashByID:
             x = attr.ib()
 
         assert hash(HashByID(1)) != hash(HashByID(1))
 
-        @attr.s(hash=True)
+        @attr.s(unsafe_hash=True)
         class HashByValues:
             x = attr.ib()
 
@@ -422,16 +421,21 @@ class TestFunctional:
         class D(C):
             pass
 
-    def test_hash_false_eq_false(self, slots):
+    def test_unsafe_hash_false_eq_false(self, slots):
         """
-        hash=False and eq=False make a class hashable by ID.
+        unsafe_hash=False and eq=False make a class hashable by ID.
         """
 
-        @attr.s(hash=False, eq=False, slots=slots)
+        @attr.s(unsafe_hash=False, eq=False, slots=slots)
         class C:
             pass
 
         assert hash(C()) != hash(C())
+
+    def test_hash_deprecated(self):
+        """
+        Using the hash argument is deprecated.
+        """
 
     def test_eq_false(self, slots):
         """
@@ -744,3 +748,21 @@ class TestFunctional:
             pass
 
         assert hash(Hashable())
+
+    def test_init_subclass(self, slots):
+        """
+        __attrs_init_subclass__ is called on subclasses.
+        """
+        REGISTRY = []
+
+        @attr.s(slots=slots)
+        class Base:
+            @classmethod
+            def __attrs_init_subclass__(cls):
+                REGISTRY.append(cls)
+
+        @attr.s(slots=slots)
+        class ToRegister(Base):
+            pass
+
+        assert [ToRegister] == REGISTRY

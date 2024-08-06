@@ -15,7 +15,7 @@ Nevertheless, there are still reasons to prefer *attrs* over Data Classes.
 Whether they're relevant to *you* depends on your circumstances:
 
 - Data Classes are *intentionally* less powerful than *attrs*.
-  There is a long list of features that were sacrificed for the sake of simplicity and while the most obvious ones are validators, converters, {ref}`equality customization <custom-comparison>`, or {doc}`extensibility <extending>` in general, it permeates throughout all APIs.
+  There is a long list of features that were sacrificed for the sake of simplicity and while the most obvious ones are validators, converters, [equality customization](custom-comparison), a solution to the [`__init_subclass__` problem](init-subclass), or {doc}`extensibility <extending>` in general -- it permeates throughout all APIs.
 
   On the other hand, Data Classes currently do not offer any significant feature that *attrs* doesn't already have.
 
@@ -51,12 +51,15 @@ As such, it is a capable complement to class building libraries like *attrs* (or
 
 However, as convenient as it might be, using it for your business or data layer [is problematic in several ways](https://threeofwands.com/why-i-use-attrs-instead-of-pydantic/):
 Is it really necessary to re-validate all your objects while reading them from a trusted database?
+Should the shape of your web API really apply design pressure on your business objects and therefore business code?
+
 In the parlance of [*Form, Command, and Model Validation*](https://verraes.net/2015/02/form-command-model-validation/), Pydantic is the right tool for *Commands*.
 
 [*Separation of concerns*](https://en.wikipedia.org/wiki/Separation_of_concerns) feels tedious at times, but it's one of those things that you get to appreciate once you've shot your own foot often enough and seen the results of allowing design pressure from the edges of your system, like ORMs or web APIs.
 
 *attrs* emphatically does **not** try to be a validation library, but a toolkit to write well-behaved classes like you would write yourself.
 If you'd like a powerful library for structuring, unstructuring, and validating data, have a look at [*cattrs*](https://catt.rs/) which is an official member of the *attrs* family.
+One of it's core tenants is that it doesn't couple your classes to external factors.
 
 
 ## … namedtuples?
@@ -291,7 +294,7 @@ You can freely choose which features you want and disable those that you want mo
 ...    b: int
 ...
 ...    def __repr__(self):
-...        return "<SmartClass(a=%d)>" % (self.a,)
+...        return f"<SmartClass(a={self.a})>"
 >>> SmartClass(1, 2)
 <SmartClass(a=1)>
 ```
