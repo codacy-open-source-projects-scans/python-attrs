@@ -51,11 +51,7 @@ cov = [
   # Ensure coverage is new enough for `source_pkgs`.
   "coverage[toml]>=5.3",
 ]
-benchmark = [
-  "pytest-codspeed",
-  "pytest-xdist[psutil]",
-  "attrs[tests]",
-]
+benchmark = ["pytest-codspeed", "pytest-xdist[psutil]", "attrs[tests]"]
 docs = [
   "cogapp",
   "furo",
@@ -63,8 +59,8 @@ docs = [
   "sphinx",
   "sphinx-notfound-page",
   "sphinxcontrib-towncrier",
-   # See https://github.com/sphinx-contrib/sphinxcontrib-towncrier/issues/92
-   # Pin also present in tox.ini
+  # See https://github.com/sphinx-contrib/sphinxcontrib-towncrier/issues/92
+  # Pin also present in tox.ini
   "towncrier<24.7",
 ]
 dev = ["attrs[tests]", "pre-commit"]
@@ -199,29 +195,26 @@ ignore = [
   "A003",    # shadowing is fine
   "ANN",     # Mypy is better at this
   "ARG",     # unused arguments are normal when implementing interfaces
+  "C901",    # we're complex software
   "COM",     # Black takes care of our commas
   "D",       # We prefer our own docstring style.
   "E501",    # leave line-length enforcement to Black
+  "ERA001",  # we need to keep around some notes
   "FBT",     # we don't hate bool args around here
   "FIX",     # Yes, we want XXX as a marker.
+  "N",       # we need more naming freedom
+  "PD",      # we're not pandas
+  "PLR0912", # we're complex software
   "PLR0913", # yes, many arguments, but most have defaults
+  "PLR0915", # we're complex software
   "PLR2004", # numbers are sometimes fine
+  "PLW0603", # sometimes we need globals
+  "S307",    # eval FTW
   "SLF001",  # private members are accessed by friendly functions
   "TCH",     # TYPE_CHECKING blocks break autodocs
   "TD",      # we don't follow other people's todo style
-  "C901",    # we're complex software
-  "PLR0911", # we're complex software
-  "PLR0912", # we're complex software
-  "PLR0915", # we're complex software
-  "S307",    # eval FTW
-  "N807",    # we need to create functions that start with __
-  "ERA001",  # we need to keep around some notes
-  "RSE102",  # I like empty parens on raised exceptions
-  "N",       # we need more naming freedom
-  "UP031",   # format() is slow as molasses; % and f'' FTW.
-  "PD",      # we're not pandas
-  "PLW0603", # sometimes we need globals
   "TRY301",  # I'm sorry, but this makes not sense for us.
+  "UP031",   # format() is slow as molasses; % and f'' FTW.
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -229,28 +222,21 @@ ignore = [
   "INP001", # Benchmarks don't have to be importable.
 ]
 "**/test_*" = [
-  "ARG005",  # we need stub lambdas
-  "S",
-  "SIM300",  # Yoda rocks in asserts
-  "SIM201",  # sometimes we need to check `not ==`
-  "SIM202",  # sometimes we need to check `not ==`
-  "PT005",   # we always add underscores and explicit names
-  "PT011",   # broad is fine
-  "TRY",     # exception best practices don't matter in tests
-  "EM101",   # no need for exception msg hygiene in tests
-  "B904",    # exception best practices don't matter in tests
   "B015",    # pointless comparison in tests aren't pointless
-  "B018",    # pointless expressions in tests aren't pointless
-  "PLR0124", # pointless comparison in tests aren't pointless
-  "DTZ",     # datetime best practices don't matter in tests
-  "UP037",   # we test some older syntaxes on purpose
   "B017",    # pytest.raises(Exception) is fine
+  "B018",    # pointless expressions in tests aren't pointless
+  "DTZ",     # datetime best practices don't matter in tests
+  "EM",      # no need for exception msg hygiene in tests
+  "PLE0309", # hash doesn't have to return anything in tests
+  "PLR0124", # pointless comparison in tests aren't pointless
+  "PT011",   # broad is fine
   "PT012",   # sometimes we need more than a single stmt
   "RUF012",  # we don't do ClassVar annotations in tests
-]
-
-"conftest.py" = [
-  "PT005", # we always add underscores and explicit names
+  "S",       # security concerns don't matter in tests
+  "SIM201",  # sometimes we need to check `not ==`
+  "SIM202",  # sometimes we need to check `not ==`
+  "SIM300",  # Yoda rocks in asserts
+  "TRY",     # exception best practices don't matter in tests
 ]
 
 "src/*/*.pyi" = ["ALL"] # TODO
@@ -259,14 +245,12 @@ ignore = [
   "E741",   # ambiguous variable names don't matter in type checks
   "B018",   # useless expressions aren't useless in type checks
   "B015",   # pointless comparison in type checks aren't pointless
-  "TRY301", # exception hygiene isn't important in type checks
   "UP037",  # we test some older syntaxes on purpose
 ]
 
 [tool.ruff.lint.isort]
 lines-between-types = 1
 lines-after-imports = 2
-known-first-party = ["attr", "attrs"]
 
 
 [tool.towncrier]
