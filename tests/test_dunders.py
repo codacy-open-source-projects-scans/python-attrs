@@ -29,10 +29,10 @@ from attr.validators import instance_of
 from .utils import simple_attr, simple_class
 
 
-EqC = simple_class(eq=True)
-EqCSlots = simple_class(eq=True, slots=True)
-OrderC = simple_class(order=True)
-OrderCSlots = simple_class(order=True, slots=True)
+EqC = simple_class(name="EqC", eq=True)
+EqCSlots = simple_class(name="EqCSlots", eq=True, slots=True)
+OrderC = simple_class(name="OrderC", order=True)
+OrderCSlots = simple_class(name="OrderCSlots", order=True, slots=True)
 ReprC = simple_class(repr=True)
 ReprCSlots = simple_class(repr=True, slots=True)
 
@@ -64,16 +64,29 @@ class OrderCallableCSlots:
 # HashC is hashable by explicit definition while HashCSlots is hashable
 # implicitly.  The "Cached" versions are the same, except with hash code
 # caching enabled
-HashC = simple_class(unsafe_hash=True)
-HashCSlots = simple_class(unsafe_hash=None, eq=True, frozen=True, slots=True)
-HashCCached = simple_class(unsafe_hash=True, cache_hash=True)
+HashC = simple_class(name="HashC", unsafe_hash=True)
+HashCSlots = simple_class(
+    name="HashCSlots", unsafe_hash=None, eq=True, frozen=True, slots=True
+)
+HashCCached = simple_class(
+    name="HashCCached", unsafe_hash=True, cache_hash=True
+)
 HashCSlotsCached = simple_class(
-    unsafe_hash=None, eq=True, frozen=True, slots=True, cache_hash=True
+    name="HashCSlotsCached",
+    unsafe_hash=None,
+    eq=True,
+    frozen=True,
+    slots=True,
+    cache_hash=True,
 )
 # the cached hash code is stored slightly differently in this case
 # so it needs to be tested separately
 HashCFrozenNotSlotsCached = simple_class(
-    frozen=True, slots=False, unsafe_hash=True, cache_hash=True
+    name="HashCFrozenNotSlotsCached",
+    frozen=True,
+    slots=False,
+    unsafe_hash=True,
+    cache_hash=True,
 )
 
 
@@ -339,7 +352,9 @@ class TestAddRepr:
 
         assert "C(b=2)" == repr(C(1, 2))
 
-    @pytest.mark.parametrize("cls", [ReprC, ReprCSlots])
+    @pytest.mark.parametrize(
+        "cls", [ReprC, ReprCSlots], ids=["ReprC", "ReprCSlots"]
+    )
     def test_repr_works(self, cls):
         """
         repr returns a sensible value.
@@ -499,9 +514,11 @@ class TestAddHash:
         but attrs is not requested to generate `__hash__`.
         """
         exc_args = (
-            "Invalid value for cache_hash.  To use hash caching,"
-            " hashing must be either explicitly or implicitly "
-            "enabled.",
+            (
+                "Invalid value for cache_hash.  To use hash caching,"
+                " hashing must be either explicitly or implicitly "
+                "enabled."
+            ),
         )
         with pytest.raises(TypeError) as e:
             make_class("C", {}, unsafe_hash=False, cache_hash=True)
@@ -525,8 +542,10 @@ class TestAddHash:
         but attrs is not requested to generate `__init__`.
         """
         exc_args = (
-            "Invalid value for cache_hash.  To use hash caching,"
-            " init must be True.",
+            (
+                "Invalid value for cache_hash.  To use hash caching,"
+                " init must be True."
+            ),
         )
         with pytest.raises(TypeError) as e:
             make_class("C", {}, init=False, unsafe_hash=True, cache_hash=True)

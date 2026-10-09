@@ -13,6 +13,7 @@ class Point:
         self.x = database_row.x
         self.y = database_row.y
 
+
 pt = Point(row)
 ```
 
@@ -27,6 +28,7 @@ class Point:
     @classmethod
     def from_row(cls, row):
         return cls(row.x, row.y)
+
 
 pt = Point.from_row(row)
 ```
@@ -384,8 +386,8 @@ If you need more control over the conversion process, you can wrap the converter
 C(x=410)
 ```
 
-
 Or as a decorator
+
 ```{doctest}
 >>> from typing import ClassVar
 >>> @define

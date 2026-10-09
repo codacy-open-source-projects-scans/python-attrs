@@ -7,7 +7,7 @@ Baseline features that should be supported by all type checkers.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Generator
 
 import attrs
 
@@ -18,6 +18,9 @@ class NGClass:
 
 
 ngc = NGClass(1)
+
+ngc = attrs.assoc(ngc, x=1)
+ngc = attrs.evolve(ngc, x=1)
 
 
 @attrs.mutable(slots=False)
@@ -98,7 +101,7 @@ class Validated:
 class ValidatedOptionalOverTuple:
     num: int | None = attrs.field(
         validator=attrs.validators.optional(
-            (attrs.validators.instance_of(int), attrs.validators.ge(0))  # ty:ignore [invalid-argument-type]
+            (attrs.validators.instance_of(int), attrs.validators.ge(0))
         )
     )
 
@@ -130,6 +133,12 @@ class WithCustomRepr:
     d: bool = attrs.field(repr=str)
 
 
+def gen_on_setattr_hook(
+    instance: Any, attribute: attrs.Attribute[Any], new_value: Any
+) -> Generator[int]:
+    yield 42
+
+
 @attrs.define(on_setattr=attrs.setters.validate)
 class ValidatedSetter2:
     a: int
@@ -143,6 +152,7 @@ class ValidatedSetter2:
             attrs.setters.convert, attrs.setters.validate
         )
     )
+    f: int = attrs.field(on_setattr=gen_on_setattr_hook)
 
 
 @attrs.define(eq=True, order=True)

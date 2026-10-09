@@ -85,7 +85,7 @@ examples
 
 ```{toctree}
 :maxdepth: 2
-:caption: Explanations
+:caption: Guides
 
 types
 init

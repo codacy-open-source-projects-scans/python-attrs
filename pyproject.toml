@@ -10,17 +10,17 @@ name = "attrs"
 authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 description = "Classes Without Boilerplate"
 keywords = ["class", "attribute", "boilerplate"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed",
@@ -46,18 +46,23 @@ tests = [
   'cloudpickle; platform_python_implementation == "CPython"',
   "hypothesis",
   "pympler",
-  "pytest",
+  "pytest>9",
   "pytest-xdist[psutil]",
+]
+lint = [
+  "ruff>=0.16",
+  "prek>=0.4",
 ]
 cov = [{ include-group = "tests" }, "coverage[toml]"]
 pyright = ["pyright", { include-group = "tests" }]
 ty = ["ty", { include-group = "tests" }]
-pyrefly = ["pyrefly", { include-group = "tests" }]
+pyrefly = ["pyrefly>=1.2.0", { include-group = "tests" }]
 benchmark = [
   { include-group = "tests" },
   "pytest-codspeed",
   "pytest-xdist[psutil]",
 ]
+tox = ["tox>4", "tox-uv-bare"]
 docs = [
   "cogapp",
   "furo",
@@ -68,7 +73,21 @@ docs = [
   "towncrier",
 ]
 docs-watch = [{ include-group = "docs" }, "watchfiles"]
-dev = [{ include-group = "tests" }, "ruff"]
+dev = [
+    { include-group = "tox" },
+    { include-group = "tests" },
+    { include-group = "lint" },
+    { include-group = "pyrefly" },
+    { include-group = "ty" },
+]
+
+
+[tool.uv]
+# Dependency cooldown
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+pyrefly = false  # need pyrefly 1.2.0; remove after 2026-08-07
 
 
 [tool.hatch.version]
@@ -159,15 +178,10 @@ url = "https://polar.sh/"
 img = "Polar.svg"
 
 
-[tool.pytest.ini_options]
-addopts = [
-  "-ra",
-  "--strict-markers",
-  "--strict-config",
-  "--import-mode=importlib", # make src truly unimportable
-]
-xfail_strict = true
-testpaths = "tests"
+[tool.pytest]
+strict = true
+testpaths = ["tests"]
+addopts = ["-ra", "--import-mode=importlib"]
 filterwarnings = ["once::Warning", "ignore:::pympler[.*]"]
 
 
@@ -178,7 +192,7 @@ patch = ["subprocess"]
 source_pkgs = ["attr", "attrs"]
 
 [tool.coverage.paths]
-source = ["src", ".tox/py*/**/site-packages"]
+source = ["src", ".tox/*-tests/**/site-packages"]
 
 [tool.coverage.report]
 show_missing = true
@@ -222,6 +236,7 @@ ignore = [
   "ARG",     # unused arguments are normal when implementing interfaces
   "C901",    # we're complex software
   "COM",     # ruff format takes care of our commas
+  "CPY",     # they expect a very specific shape of a copyright notice
   "D",       # We prefer our own docstring style.
   "E501",    # leave line-length enforcement to ruff format
   "ERA001",  # we need to keep around some notes
@@ -234,6 +249,7 @@ ignore = [
   "PLR0912", # we're complex software
   "PLR0913", # yes, many arguments, but most have defaults
   "PLR0915", # we're complex software
+  "PLR0917", # we're complex software
   "PLR2004", # numbers are sometimes fine
   "PLW0603", # sometimes we need globals
   "S307",    # eval FTW
@@ -270,9 +286,11 @@ ignore = [
 ]
 
 "src/*/*.pyi" = ["ALL"] # TODO
-"tests/test_annotations.py" = ["FA100"]
-"typing-examples/*" = [
-  "INP001", # not for imports
+"tests/test_annotations.py" = [
+    "FA100",
+    "UP045",   # need old-school type annotations for some asserts
+]
+"typing_tests/*" = [
   "E741",   # ambiguous variable names don't matter in type checks
   "B018",   # useless expressions aren't useless in type checks
   "B015",   # pointless comparison in type checks aren't pointless
@@ -317,7 +335,27 @@ showcontent = true
 pretty = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+exclude = ["typing_tests/pyrefly.py"]
 
 
 [tool.pyright]
-include = ["typing-examples/baseline.py"]
+include = ["typing_tests/baseline.py"]
+
+
+[tool.pyrefly]
+project-includes = ["typing_tests"]
+
+
+[[tool.ty.overrides]]
+rules.all = "ignore"
+# Play whack-a-mole with error reporting so LSP still works without squiggling
+# everything red.
+include = [
+  "conftest.py",
+  "bench",
+  "docs",
+  "src",
+  "tests",
+  "typing_tests/mypy.py",
+  "typing_tests/pyrefly.py"
+]

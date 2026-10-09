@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import abc
 import contextlib
-import copy
 import enum
-import inspect
 import itertools
 import linecache
 import sys
@@ -22,11 +20,11 @@ from typing import Any, NamedTuple, TypeVar
 # having the thread-local in the globals here.
 from . import _compat, _config, setters
 from ._compat import (
-    PY_3_10_PLUS,
     PY_3_11_PLUS,
     PY_3_13_PLUS,
     _AnnotationExtractor,
     _get_annotations,
+    _lazy_is_generator,
     get_generic_base,
 )
 from .exceptions import (
@@ -160,6 +158,9 @@ def attrib(
     .. versionchanged:: 25.4.0
        *kw_only* can now be None, and its default is also changed from False to
        None.
+    .. versionchanged:: 26.2.0
+       *on_setattr* hooks can now be generator functions to run code before and
+       after an attribute is set.
     """
     eq, eq_key, order, order_key = _determine_attrib_eq_order(
         cmp, eq, order, True
@@ -299,6 +300,7 @@ def _is_class_var(annot):
     annotations which would put attrs-based classes at a performance
     disadvantage compared to plain old classes.
     """
+    annot = getattr(annot, "__forward_arg__", annot)
     annot = str(annot)
 
     # Annotation can be quoted.
@@ -705,6 +707,8 @@ class _ClassBuilder:
         if self._has_pre_init:
             # Check if the pre init method has more arguments than just `self`
             # We want to pass arguments if pre init expects arguments
+            import inspect
+
             pre_init_func = cls.__attrs_pre_init__
             pre_init_signature = inspect.signature(pre_init_func)
             self._pre_init_has_args = len(pre_init_signature.parameters) > 1
@@ -804,9 +808,7 @@ class _ClassBuilder:
             cls = self._create_slots_class()
             self._cls.__attrs_base_of_slotted__ = weakref.ref(cls)
         else:
-            cls = self._patch_original_class()
-            if PY_3_10_PLUS:
-                cls = abc.update_abstractmethods(cls)
+            cls = abc.update_abstractmethods(self._patch_original_class())
 
         # The method gets only called if it's not inherited from a base class.
         # _has_own_attribute does NOT work properly for classmethods.
@@ -920,6 +922,8 @@ class _ClassBuilder:
         # To know to update them.
         additional_closure_functions_to_update = []
         if cached_properties:
+            import inspect
+
             class_annotations = _get_annotations(self._cls)
             for name, func in cached_properties.items():
                 # Add cached properties to names for slotting.
@@ -1043,7 +1047,7 @@ class _ClassBuilder:
             if isinstance(state, tuple):
                 # Backward compatibility with attrs instances pickled with
                 # attrs versions before v22.2.0 which stored tuples.
-                for name, value in zip(state_attr_names, state):
+                for name, value in zip(state_attr_names, state, strict=False):
                     __bound_setattr(name, value)
             else:
                 for name in state_attr_names:
@@ -1104,7 +1108,11 @@ class _ClassBuilder:
         return self
 
     def add_replace(self):
-        self._cls_dict["__replace__"] = self._add_method_dunders(evolve)
+        # We create a local `evolve` proxy because it gets modified in place.
+        def __replace__(*args, **changes):
+            return evolve(*args, **changes)
+
+        self._cls_dict["__replace__"] = self._add_method_dunders(__replace__)
         return self
 
     def add_match_args(self):
@@ -1168,7 +1176,11 @@ class _ClassBuilder:
         for a in self._attrs:
             on_setattr = a.on_setattr or self._on_setattr
             if on_setattr and on_setattr is not setters.NO_OP:
-                sa_attrs[a.name] = a, on_setattr
+                sa_attrs[a.name] = (
+                    a,
+                    on_setattr,
+                    _lazy_is_generator(on_setattr),
+                )
 
         if not sa_attrs:
             return self
@@ -1181,13 +1193,29 @@ class _ClassBuilder:
         # docstring comes from _add_method_dunders
         def __setattr__(self, name, val):
             try:
-                a, hook = sa_attrs[name]
+                a, hook, is_gen = sa_attrs[name]
             except KeyError:
-                nval = val
-            else:
-                nval = hook(self, a, val)
+                _OBJ_SETATTR(self, name, val)
 
+                return
+
+            if is_gen():
+                gen = hook(self, a, val)
+                nval = next(gen)
+                _OBJ_SETATTR(self, name, nval)
+                try:
+                    next(gen)
+                except StopIteration:
+                    return
+
+                gen.close()
+                msg = "Generator on_setattr hook yielded more than once."
+                raise RuntimeError(msg)
+
+            nval = hook(self, a, val)
             _OBJ_SETATTR(self, name, nval)
+
+            return
 
         self._cls_dict["__attrs_own_setattr__"] = True
         self._cls_dict["__setattr__"] = self._add_method_dunders(__setattr__)
@@ -1357,6 +1385,15 @@ def attrs(
     *never* go away, though).
 
     Args:
+        collect_by_mro (bool):
+            If True, *attrs* collects attributes from base classes correctly
+            according to the `method resolution order
+            <https://docs.python.org/3/howto/mro.html>`_. If False, *attrs*
+            will mimic the (wrong) behavior of `dataclasses` and :pep:`681`.
+
+            See also `issue #428
+            <https://github.com/python-attrs/attrs/issues/428>`_.
+
         repr_ns (str):
             When using nested classes, there was no way in Python 2 to
             automatically detect that.  This argument allows to set a custom
@@ -1566,11 +1603,7 @@ def attrs(
         if PY_3_13_PLUS and not _has_own_attribute(cls, "__replace__"):
             builder.add_replace()
 
-        if (
-            PY_3_10_PLUS
-            and match_args
-            and not _has_own_attribute(cls, "__match_args__")
-        ):
+        if match_args and not _has_own_attribute(cls, "__match_args__"):
             builder.add_match_args()
 
         return builder.build_class()
@@ -2604,6 +2637,8 @@ class Attribute:
 
         .. versionadded:: 20.3.0
         """
+        import copy
+
         new = copy.copy(self)
 
         new._setattrs(changes.items())
@@ -2614,7 +2649,7 @@ class Attribute:
         elif (
             "name" in changes
             and "alias" not in changes
-            # Don't auto-generate alias if the user picked picked the old one.
+            # Don't auto-generate alias if the user picked the old one.
             and self.alias_is_default
         ):
             # Name changed, alias was auto-generated -- update it.
@@ -2641,7 +2676,7 @@ class Attribute:
         if len(state) < len(self.__slots__):
             # Pre-26.1.0 pickle without alias_is_default -- infer it
             # heuristically.
-            state_dict = dict(zip(self.__slots__, state))
+            state_dict = dict(zip(self.__slots__, state, strict=False))
             alias_is_default = state_dict.get(
                 "alias"
             ) is None or state_dict.get("alias") == _default_init_alias_for(
@@ -2649,7 +2684,7 @@ class Attribute:
             )
             state = (*state, alias_is_default)
 
-        self._setattrs(zip(self.__slots__, state))
+        self._setattrs(zip(self.__slots__, state, strict=True))
 
     def _setattrs(self, name_values_pairs):
         bound_setattr = _OBJ_SETATTR.__get__(self)
@@ -3081,7 +3116,7 @@ class Factory:
         """
         Play nice with pickle.
         """
-        for name, value in zip(self.__slots__, state):
+        for name, value in zip(self.__slots__, state, strict=True):
             setattr(self, name, value)
 
 
@@ -3376,6 +3411,7 @@ def pipe(*converters):
     Type annotations will be inferred from the wrapped converters', if they
     have any.
 
+    Args:
         converters (~collections.abc.Iterable[typing.Callable]):
             Arbitrary number of converters.
 
